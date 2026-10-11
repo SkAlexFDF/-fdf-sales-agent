@@ -1,0 +1,19 @@
+name: CRM analysis
+
+on:
+  push:                       # ВРЕМЕННО: запуск анализа с ветки
+    branches: [claude/sales-manager-monitoring-agent-uzbnak]
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Analyze KeyCRM (365 days)
+        env:
+          KEYCRM_API_KEY: ${{ secrets.KEYCRM_API_KEY }}
+        run: python3 -m sales_agent.analyze 365
