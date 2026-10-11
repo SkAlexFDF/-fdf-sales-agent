@@ -54,7 +54,9 @@ def _facts(report):
         }
     return {"report_date": report["date"], "company": report["company"],
             "totals": report["totals"], "managers": [mgr(m) for m in report["managers"]],
-            "norms": {"stage_limit_work_hours": {C.GROUP_NAMES[g]: h
+            "norms": {"status_limits": {k: (f"{v[1]} {v[0]}" if v else "не контролируется")
+                                        for k, v in C.STATUS_LIMITS.items()},
+                      "stage_limit_work_hours": {C.GROUP_NAMES[g]: h
                                                  for g, h in C.STAGE_LIMIT_WH.items()},
                       "delivery_days": C.DELIVERY_LIMIT_DAYS,
                       "cancel_rate_warn": C.CANCEL_RATE_WARN,

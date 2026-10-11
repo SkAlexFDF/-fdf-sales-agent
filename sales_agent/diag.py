@@ -33,6 +33,13 @@ def main():
     orders = keycrm.normalize(raw)
     print("После нормализации:", len(orders))
     print("По группам:", Counter(o["group"] for o in orders))
+    from . import metrics
+    now = datetime.now(keycrm.KYIV)
+    open_ = [o for o in orders if o["group"] not in (5, 6)]
+    print("Открытые по статусам (кол-во, медиана раб. часов в статусе):")
+    for st, n in Counter(o["status"] for o in open_).most_common():
+        hrs = sorted(metrics.work_hours(o["stage_since"], now) for o in open_ if o["status"] == st)
+        print(f"  {st}: {n}, медиана {hrs[len(hrs)//2]:.0f} раб. ч")
     print("По менеджерам:", Counter(o["manager"] for o in orders))
     print("С оплатой > 0:", sum(1 for o in orders if o["paid"] > 0),
           "| без телефона:", sum(1 for o in orders if not o["has_phone"]),

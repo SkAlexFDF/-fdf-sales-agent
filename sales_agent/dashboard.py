@@ -223,11 +223,14 @@ def render(report, ai, full=True):
 </section>""")
 
     actions = "".join(f"<li>{escape(x)}</li>" for x in ai.get("owner_actions", []))
-    norms = (f'Нормы: новый заказ — {C.STAGE_LIMIT_WH[C.G_NEW]} раб. ч, согласование — '
-             f'{C.STAGE_LIMIT_WH[C.G_APPROVAL]} раб. ч, производство/сборка — '
-             f'{C.STAGE_LIMIT_WH[C.G_PRODUCTION]} раб. ч, доставка — {C.DELIVERY_LIMIT_DAYS} дн '
+    by_status = ", ".join(
+        f"{k} — {v[1]} {'раб. ч' if v[0] == 'wh' else 'дн'}" if v else f"{k} — не контролируется"
+        for k, v in C.STATUS_LIMITS.items())
+    norms = (f'Нормы по статусам: {by_status}. Остальные: новый — {C.STAGE_LIMIT_WH[C.G_NEW]} раб. ч, '
+             f'согласование — {C.STAGE_LIMIT_WH[C.G_APPROVAL]} раб. ч, доставка — {C.DELIVERY_LIMIT_DAYS} дн '
              f'(рабочее время Пн–Сб {C.WORK_START}:00–{C.WORK_END}:00). Отмены выше '
-             f'{C.CANCEL_RATE_WARN:.0%} — флаг. Дебиторка — выполненные заказы без полной оплаты. '
+             f'{C.CANCEL_RATE_WARN:.0%} — флаг (обмен, ошибка FDF и долг не считаются отменой менеджера). '
+             f'Дебиторка — выполненные заказы без полной оплаты и статус «Заборгованість». '
              f'Отток — клиент молчит дольше 2× своего интервала и не меньше {C.CHURN_MIN_DAYS} дн.')
     body = f"""
 <div class="wrap">

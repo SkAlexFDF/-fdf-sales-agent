@@ -25,8 +25,8 @@ def work_hours(start, end):
 
 
 def _stats(orders, first_order_at):
-    live = [o for o in orders if o["group"] != C.G_CANCEL]
-    canceled = len(orders) - len(live)
+    live = [o for o in orders if o["live"]]
+    canceled = sum(1 for o in orders if o["cancel"])
     revenue = sum(o["total"] for o in live)
     return {
         "orders": len(orders),
@@ -44,20 +44,34 @@ def _in(o, start, end):
     return start <= o["created"] < end
 
 
-def _stuck(o, now):
+def _limit(o):
+    if o["status_l"] in C.STATUS_LIMITS:
+        return C.STATUS_LIMITS[o["status_l"]]
     g = o["group"]
     if g in C.STAGE_LIMIT_WH:
+        return ("wh", C.STAGE_LIMIT_WH[g])
+    if g == C.G_DELIVERY:
+        return ("days", C.DELIVERY_LIMIT_DAYS)
+    return None
+
+
+def _stuck(o, now):
+    if o["group"] in (C.G_DONE, C.G_CANCEL):
+        return None
+    rule = _limit(o)
+    if not rule:
+        return None
+    kind, limit = rule
+    if kind == "wh":
         wh = work_hours(o["stage_since"], now)
-        limit = C.STAGE_LIMIT_WH[g]
         if wh > limit:
             return {"level": "red" if wh > 3 * limit else "yellow",
                     "age": f"{wh:.0f} раб. ч", "norm": f"{limit} раб. ч", "hours": wh}
-    elif g == C.G_DELIVERY:
+    else:
         days = (now - o["stage_since"]).total_seconds() / 86400
-        if days > C.DELIVERY_LIMIT_DAYS:
-            return {"level": "red" if days > 2 * C.DELIVERY_LIMIT_DAYS else "yellow",
-                    "age": f"{days:.0f} дн", "norm": f"{C.DELIVERY_LIMIT_DAYS} дн",
-                    "hours": days * 24}
+        if days > limit:
+            return {"level": "red" if days > 2 * limit else "yellow",
+                    "age": f"{days:.0f} дн", "norm": f"{limit} дн", "hours": days * 24}
     return None
 
 
@@ -79,7 +93,7 @@ def build(orders, now):
 
     first_order_at = {}
     for o in sorted(orders, key=lambda x: x["created"]):
-        if o["buyer_id"] and o["group"] != C.G_CANCEL:
+        if o["buyer_id"] and o["live"]:
             first_order_at.setdefault(o["buyer_id"], o["created"])
 
     by_mgr = defaultdict(list)
@@ -92,7 +106,7 @@ def build(orders, now):
     # отток считаем по клиенту, относим к менеджеру последнего заказа
     by_buyer = defaultdict(list)
     for o in orders:
-        if o["buyer_id"] and o["group"] != C.G_CANCEL:
+        if o["buyer_id"] and o["live"]:
             by_buyer[o["buyer_id"]].append(o)
     churn = defaultdict(list)
     for bid, lst in by_buyer.items():
@@ -119,13 +133,16 @@ def build(orders, now):
             s = _stuck(o, now)
             if s:
                 stuck.append(_row(o, **s))
-            if o["group"] == C.G_DONE and o["total"] - o["paid"] > 1:
+            unpaid = o["total"] - o["paid"] > 1 and o["payment_status"] != "overpaid"
+            if unpaid and (o["group"] == C.G_DONE and o["live"] or o["debt_status"]):
                 since = o["closed"] or o["stage_since"]
                 days = (now - since).days
                 debt.append(_row(o, due=round(o["total"] - o["paid"]), days=days,
                                  level="red" if days > C.DEBT_RED_DAYS else
                                  "yellow" if days > C.DEBT_YELLOW_DAYS else "ok"))
-            if _in(o, *p["week"]) and o["group"] != C.G_CANCEL:
+            if _in(o, *p["week"]) and o["status_l"] == "помилка fdf":
+                issues.append(_row(o, problem="помилка FDF"))
+            if _in(o, *p["week"]) and o["live"]:
                 if not o["has_phone"]:
                     issues.append(_row(o, problem="нет телефона клиента"))
                 if o["total"] and o["discount"] / (o["total"] + o["discount"]) > C.DISCOUNT_WARN:
@@ -185,6 +202,6 @@ def _daily(lst, today):
     days = [(today - timedelta(days=i)).date() for i in range(30, 0, -1)]
     rev = defaultdict(float)
     for o in lst:
-        if o["group"] != C.G_CANCEL:
+        if o["live"]:
             rev[o["created"].date()] += o["total"]
     return [[d.strftime("%d.%m"), round(rev[d])] for d in days]

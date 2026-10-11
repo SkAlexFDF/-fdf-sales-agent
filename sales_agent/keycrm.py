@@ -131,6 +131,7 @@ def normalize(raw):
             "closed": parse_dt(o.get("closed_at")),
             "group": int(gid) if gid else None,
             "status": st.get("name") or names.get(sid) or C.GROUP_NAMES.get(gid, "—"),
+            "payment_status": o.get("payment_status"),
             "manager_id": mid,
             "manager": _person_name(o.get("manager")) or users.get(mid),
             "buyer_id": buyer.get("id") or o.get("client_id"),
@@ -142,4 +143,17 @@ def normalize(raw):
             "has_shipping": bool(o.get("shipping")),
             "comment": (o.get("manager_comment") or "")[:300],
         })
-    return [o for o in out if o["created"]]
+    res = []
+    for o in out:
+        sl = o["status"].strip().lower()
+        if not o["created"] or sl in C.IGNORE_STATUSES:
+            continue
+        o["status_l"] = sl
+        o["debt_status"] = sl in C.DEBT_STATUSES
+        o["is_return"] = sl in C.RETURN_STATUSES
+        # продажа: не отмена (кроме долга) и не возврат
+        o["live"] = (o["group"] != C.G_CANCEL or o["debt_status"]) and not o["is_return"]
+        # отмена, за которую отвечает менеджер
+        o["cancel"] = o["group"] == C.G_CANCEL and sl not in C.NOT_MANAGER_CANCEL
+        res.append(o)
+    return res
