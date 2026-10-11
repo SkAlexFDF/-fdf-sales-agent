@@ -9,7 +9,7 @@ STATUSES = [
     {"id": 1, "name": "Новий", "group_id": C.G_NEW},
     {"id": 2, "name": "Підтверджено", "group_id": C.G_APPROVAL},
     {"id": 3, "name": "Комплектація", "group_id": C.G_PRODUCTION},
-    {"id": 4, "name": "Відправлено", "group_id": C.G_DELIVERY},
+    {"id": 4, "name": "В дорозі (зовнішня служба)", "group_id": C.G_DELIVERY},
     {"id": 5, "name": "Виконано", "group_id": C.G_DONE},
     {"id": 6, "name": "Скасовано", "group_id": C.G_CANCEL},
 ]

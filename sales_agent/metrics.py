@@ -132,7 +132,7 @@ def build(orders, now):
         for o in lst:
             s = _stuck(o, now)
             if s:
-                stuck.append(_row(o, **s))
+                stuck.append(_row(o, shipping=o["status_l"] in C.SHIPPING_STATUSES, **s))
             unpaid = o["total"] - o["paid"] > 1 and o["payment_status"] != "overpaid"
             if unpaid and (o["group"] == C.G_DONE and o["live"] or o["debt_status"]):
                 since = o["closed"] or o["stage_since"]
@@ -175,6 +175,7 @@ def build(orders, now):
             "index": max(0, idx),
             "daily": _daily(lst, today),
         })
+    managers = [m for m in managers if m["name"] not in C.EXCLUDE_MANAGERS]
     managers.sort(key=lambda m: (m["id"] == 0, -m["stats"]["month"]["revenue"]))
 
     company = {name: _stats([o for o in orders if _in(o, *rng)], first_order_at)
