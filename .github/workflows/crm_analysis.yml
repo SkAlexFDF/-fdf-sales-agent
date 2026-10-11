@@ -1,8 +1,6 @@
 name: CRM analysis
 
 on:
-  push:                       # ВРЕМЕННО: запуск анализа с ветки
-    branches: [claude/sales-manager-monitoring-agent-uzbnak]
   workflow_dispatch:
 
 jobs:
