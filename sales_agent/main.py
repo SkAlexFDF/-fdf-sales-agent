@@ -69,6 +69,14 @@ def telegram_text(report, analysis):
             flags.append(f"⚠️{len(m['issues'])}")
         lines.append(f"👤 {m['name']}: 7д {w['orders']} зак. / {ai.fmt(w['revenue'])} грн · "
                      f"индекс {m['index']} {' '.join(flags)}")
+    ship = [(r, m["name"]) for m in report["managers"] for r in m["stuck"] if r.get("shipping")]
+    if ship:
+        ship.sort(key=lambda x: -x[0]["hours"])
+        lines += ["", f"🚚 Зависли в отправке/доставке: {len(ship)}"]
+        for r, name in ship[:8]:
+            lines.append(f"• №{r['id']} {r['status']} — {r['age']} ({name.split()[0]})")
+        if len(ship) > 8:
+            lines.append(f"…и ещё {len(ship) - 8} — в отчёте")
     lines += ["", "✅ Сегодня:"] + [f"• {a}" for a in analysis["owner_actions"][:5]]
     lines += ["", "Полный отчёт с рекомендациями и вопросами менеджерам — в файле ниже.",
               "⏳ зависшие · 💸 долг 30+ дн · 🚪 риск оттока · ⚠️ ошибки"]
