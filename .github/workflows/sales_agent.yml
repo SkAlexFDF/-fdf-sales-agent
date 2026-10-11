@@ -1,0 +1,41 @@
+name: FDF sales managers report
+
+on:
+  schedule:
+    - cron: "50 4 * * 1-6"   # Пн–Сб, 07:50 по Киеву летом (06:50 зимой)
+  workflow_dispatch:
+    inputs:
+      demo:
+        description: "Демо-данные вместо KeyCRM"
+        type: boolean
+        default: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install anthropic
+      - name: Build and send report
+        env:
+          KEYCRM_API_KEY: ${{ secrets.KEYCRM_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SALES_TELEGRAM_CHAT_ID: ${{ secrets.SALES_TELEGRAM_CHAT_ID }}
+          KEYCRM_ORDER_URL: ${{ vars.KEYCRM_ORDER_URL }}
+        run: |
+          if [ "${{ inputs.demo }}" = "true" ]; then
+            python3 -m sales_agent.main --demo --send
+          else
+            python3 -m sales_agent.main
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sales-report
+          path: out/
+          retention-days: 30
