@@ -49,9 +49,9 @@ def get_all(path, key, params=None):
         time.sleep(1.1)
 
 
-def fetch(key, now):
-    """Сырые данные из KeyCRM: статусы, пользователи, заказы за HISTORY_DAYS."""
-    start = (now - timedelta(days=C.HISTORY_DAYS)).strftime("%Y-%m-%d 00:00:00")
+def fetch(key, now, days=None, products=False):
+    """Сырые данные из KeyCRM: статусы, пользователи, заказы за days (по умолчанию HISTORY_DAYS)."""
+    start = (now - timedelta(days=days or C.HISTORY_DAYS)).strftime("%Y-%m-%d 00:00:00")
     end = now.strftime("%Y-%m-%d 23:59:59")
     statuses = get_all("/order/status", key)
     try:
@@ -60,10 +60,15 @@ def fetch(key, now):
         print(f"[keycrm] /users недоступен: {e}", file=sys.stderr)
         users = []
     orders = get_all("/order", key, {
-        "include": "buyer,manager,payments,shipping,status",
+        "include": "buyer,manager,payments,shipping,status" + (",products" if products else ""),
         "filter[created_between]": f"{start}, {end}",
     })
-    return {"statuses": statuses, "users": users, "orders": orders}
+    try:
+        sources = get_all("/order/source", key)
+    except Exception as e:
+        print(f"[keycrm] /order/source недоступен: {e}", file=sys.stderr)
+        sources = []
+    return {"statuses": statuses, "users": users, "orders": orders, "sources": sources}
 
 
 # ----------------------------- нормализация -----------------------------
@@ -114,6 +119,7 @@ def normalize(raw):
     groups = {s.get("id"): s.get("group_id") for s in raw.get("statuses", [])}
     names = {s.get("id"): s.get("name") for s in raw.get("statuses", [])}
     users = {u.get("id"): _person_name(u) for u in raw.get("users", [])}
+    sources = {x.get("id"): x.get("name") or x.get("alias") for x in raw.get("sources", [])}
     out = []
     for o in raw.get("orders", []):
         st = o.get("status") or {}
@@ -142,6 +148,11 @@ def normalize(raw):
             "paid": _paid_amount(o),
             "has_shipping": bool(o.get("shipping")),
             "comment": (o.get("manager_comment") or "")[:300],
+            "source": sources.get(o.get("source_id")) or (f"#{o.get('source_id')}" if o.get("source_id") else "—"),
+            "shipped": parse_dt((o.get("shipping") or {}).get("shipping_date_actual")),
+            "products": [{"sku": p.get("sku") or (p.get("offer") or {}).get("sku") or "",
+                          "sum": _num(p.get("price_sold") or p.get("price")) * _num(p.get("quantity") or 1)}
+                         for p in (o.get("products") or [])],
         })
     res = []
     for o in out:

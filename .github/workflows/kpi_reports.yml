@@ -1,0 +1,49 @@
+name: FDF KPI reports
+
+on:
+  schedule:
+    - cron: "20 4 * * 1"    # неделя: понедельник, 07:20 по Киеву летом (06:20 зимой)
+    - cron: "15 5 1 * *"    # месяц: 1-е число, 08:15 по Киеву летом (07:15 зимой)
+  push:                     # ВРЕМЕННО: проверка с ветки
+    branches: [claude/sales-manager-monitoring-agent-uzbnak]
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: "Отчёт"
+        type: choice
+        options: [week, month]
+        default: week
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build and send KPI report
+        env:
+          KEYCRM_API_KEY: ${{ secrets.KEYCRM_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SALES_TELEGRAM_CHAT_ID: ${{ secrets.SALES_TELEGRAM_CHAT_ID }}
+          KEYCRM_ORDER_URL: ${{ vars.KEYCRM_ORDER_URL }}
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            python3 -m sales_agent.periodic week --dry-run
+            python3 -m sales_agent.periodic month --dry-run
+          elif [ "${{ github.event.schedule }}" = "15 5 1 * *" ]; then
+            python3 -m sales_agent.periodic month
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            python3 -m sales_agent.periodic week
+          else
+            python3 -m sales_agent.periodic "${{ inputs.kind }}"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kpi-report
+          path: out/
+          retention-days: 90
