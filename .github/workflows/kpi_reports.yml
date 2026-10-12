@@ -4,8 +4,6 @@ on:
   schedule:
     - cron: "20 4 * * 1"    # неделя: понедельник, 07:20 по Киеву летом (06:20 зимой)
     - cron: "15 5 1 * *"    # месяц: 1-е число, 08:15 по Киеву летом (07:15 зимой)
-  push:                     # ВРЕМЕННО: проверка с ветки
-    branches: [claude/sales-manager-monitoring-agent-uzbnak]
   workflow_dispatch:
     inputs:
       kind:
@@ -31,10 +29,7 @@ jobs:
           SALES_TELEGRAM_CHAT_ID: ${{ secrets.SALES_TELEGRAM_CHAT_ID }}
           KEYCRM_ORDER_URL: ${{ vars.KEYCRM_ORDER_URL }}
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            python3 -m sales_agent.periodic week --dry-run
-            python3 -m sales_agent.periodic month --dry-run
-          elif [ "${{ github.event.schedule }}" = "15 5 1 * *" ]; then
+          if [ "${{ github.event.schedule }}" = "15 5 1 * *" ]; then
             python3 -m sales_agent.periodic month
           elif [ "${{ github.event_name }}" = "schedule" ]; then
             python3 -m sales_agent.periodic week

@@ -72,8 +72,11 @@ def stats(lst, first):
     rev = sum(o["total"] for o in live)
     disc = sum(o["discount"] for o in live)
     buyers = {o["buyer_id"] for o in live if o["buyer_id"]}
+    # фактическая отправка: дата после создания и не в будущем (будущие даты в KeyCRM — плановые)
+    now = datetime.now(keycrm.KYIV)
     ship = sorted((o["shipped"] - o["created"]).total_seconds() / 3600 for o in live
-                  if o["shipped"] and o["shipped"] > o["created"])
+                  if o["shipped"] and o["created"] < o["shipped"] <= now
+                  and (o["shipped"] - o["created"]).days <= 14)
     return {
         "orders": len(lst), "live": len(live), "rev": round(rev),
         "aov": round(rev / len(live)) if live else 0,
